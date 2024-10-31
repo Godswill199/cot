@@ -1,0 +1,44 @@
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Tomorrow', sans-serif;
+  }
+  
+body {
+    font-family: 'Montserrat', sans-serif;
+  }
+
+  #root {
+    overflow-x: hidden;
+  }
+
+  /* Banner slider */
+.slick-slider,
+.slick-list,
+.slick-track {
+  height: 100%;
+}
+
+.slick-slide > div {
+  height: 100%;
+}
+
+.slick-slide {
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+}
+
+.slick-slide.slick-active {
+  opacity: 1;
+}
+
+.slide-background {
+  transform: scale(1);
+  transition: transform 3s ease-in-out;
+}
+
+.slick-active .slide-background {
+  transform: scale(1.1);
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
