@@ -5,7 +5,7 @@
   "scripts": {
     "start": "cd auth-backend && node src/index.js",
     "server": "cd auth-backend && nodemon src/index.js",
-    "client": "cd frontend && npm run dev",
+    "client": "npm --prefix frontend run dev",
     "build": "cd frontend && npm run build",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "install-all": "npm install && cd frontend && npm install && cd ../auth-backend && npm install"
