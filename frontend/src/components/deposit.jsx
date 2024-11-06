@@ -14,6 +14,9 @@ const WalletComponent = () => {
   const [accountNumber, setAccountNumber] = useState('');
   const [accountName, setAccountName] = useState('');
   const [withdrawalSubmitted, setWithdrawalSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const bankAccounts = {
     uba: '1234567890',
@@ -38,23 +41,59 @@ const WalletComponent = () => {
 
   const handleDeposit = async (e) => {
     e.preventDefault();
+    setError('');
+    
+    if (!amount || amount <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+
+    if (!receipt) {
+      setError('Please upload a receipt');
+      return;
+    }
+
     try {
+      setIsLoading(true);
       await submitDepositRequest(user.id, amount, receipt);
-      refreshWalletBalance();
-      // Handle successful deposit (e.g., show success message, clear form)
+      await refreshWalletBalance();
+      setAmount('');
+      setReceipt(null);
+      setSuccessMessage('Deposit request submitted successfully');
     } catch (error) {
-      // Handle error (e.g., show error message)
+      setError(error.response?.data?.message || 'Failed to submit deposit request');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleWithdraw = async (e) => {
     e.preventDefault();
+    setError('');
+
+    if (!amount || amount <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+
+    if (amount > wallet.balance) {
+      setError('Insufficient balance');
+      return;
+    }
+
     try {
-      await submitWithdrawalRequest(user.id, amount, { bankName, accountNumber, accountName });
-      refreshWalletBalance();
+      setIsLoading(true);
+      await submitWithdrawalRequest(user.id, amount, {
+        bankName,
+        accountNumber,
+        accountName
+      });
+      await refreshWalletBalance();
       setWithdrawalSubmitted(true);
     } catch (error) {
-      // Handle error (e.g., show error message)
+      setError(error.response?.data?.message || 'Failed to submit withdrawal request');
+    } finally {
+      setIsLoading(false);
     }
   };
 

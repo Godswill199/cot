@@ -1,15 +1,15 @@
 // src/components/Login.jsx
-import React, { useState, useEffect  } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from './context/AuthContext';
-import api from './utils/axiosConfig'
+import api from './utils/axiosConfig';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userLogin, isUserLoggedIn } = useAuth();  // Add isUserLoggedIn here
+  const { userLogin, isUserLoggedIn } = useAuth();
   
   const [formData, setFormData] = useState({
     email: '',
@@ -25,7 +25,6 @@ const Login = () => {
       ...prevState,
       [name]: value
     }));
-    // Clear error when user starts typing
     setError('');
   };
 
@@ -35,12 +34,13 @@ const Login = () => {
     setError('');
   
     try {
-      const response = await api.post('/login', formData);
+      const response = await api.post('/api/auth/login', formData);
       const { token, user } = response.data;
       
       const loginResult = await userLogin({ token, user });
       if (loginResult.success) {
-        navigate('/dashboard');
+        const intendedPath = location.state?.from || '/dashboard';
+        navigate(intendedPath);
       } else {
         setError('Login failed. Please try again.');
       }
@@ -55,32 +55,54 @@ const Login = () => {
   const handleGoogleSuccess = async (credentialResponse) => {
     setIsLoading(true);
     setError('');
-    console.log('Google login response:', credentialResponse);
-  
+    
     try {
-      const response = await api.post('/google-login', {
-        credential: credentialResponse.credential,
+      console.log('Google response received:', !!credentialResponse.credential);
+
+      if (!credentialResponse?.credential) {
+        throw new Error('No credential received from Google');
+      }
+
+      const response = await api.post('/api/auth/google-login', {
+        credential: credentialResponse.credential
       });
       
       console.log('Server response:', response.data);
-      const { token, user } = response.data;
-      
-      const result = await userLogin({ token, user });
-      console.log('Login result:', result);
+
+      if (!response.data?.token || !response.data?.user) {
+        throw new Error('Invalid response from server');
+      }
+
+      const result = await userLogin(response.data);
       
       if (result.success) {
-        console.log('Navigating to dashboard...');
-        navigate('/dashboard');
+        const intendedPath = location.state?.from || '/dashboard';
+        navigate(intendedPath);
       } else {
         setError('Google login failed. Please try again.');
       }
     } catch (error) {
       console.error('Google login error:', error);
-      setError('Google login failed. Please try again.');
+      setError(
+        error.response?.data?.message || 
+        error.message || 
+        'Failed to login with Google. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleGoogleError = () => {
+    console.error('Google Sign In was unsuccessful.');
+    setError('Google login failed. Please try again or use email login.');
+  };
+
+  useEffect(() => {
+    if (isUserLoggedIn) {
+      navigate('/dashboard');
+    }
+  }, [isUserLoggedIn, navigate]);
 
   return (
     <div className="min-h-screen bg-[#1e1e1e] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -168,11 +190,16 @@ const Login = () => {
               </div>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-6 flex justify-center">
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
-                onError={() => setError('Google login failed. Please try again.')}
-                disabled={isLoading}
+                onError={handleGoogleError}
+                useOneTap
+                theme="filled_black"
+                shape="rectangular"
+                locale="en"
+                text="continue_with"
+                context="signin"
               />
             </div>
           </div>

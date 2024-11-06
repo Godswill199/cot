@@ -1,0 +1,18 @@
+version: '3'
+services:
+  backend:
+    build: ./auth-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - FRONTEND_URL=${FRONTEND_URL}
+
+  frontend:
+    build: .
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=${VITE_API_URL} 

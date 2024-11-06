@@ -4,7 +4,10 @@ import api from '../utils/axiosConfig';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [wallet, setWallet] = useState(null);
@@ -12,19 +15,35 @@ export const AuthProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [investments, setInvestments] = useState([]);
 
+  const checkToken = useCallback(() => {
+    const token = localStorage.getItem('userAuthToken');
+    if (!token) {
+      setUser(null);
+      setIsUserLoggedIn(false);
+      return false;
+    }
+    return true;
+  }, []);
 
   const fetchWalletBalance = useCallback(async (userId) => {
     if (!userId) return;
     
-    console.log('Fetching wallet balance for user:', userId);
     setWalletLoading(true);
     try {
-      const response = await api.get(`/wallet/${userId}/balance`);
-      console.log('Wallet balance response:', response.data);
-      setWallet(prevWallet => ({ ...prevWallet, balance: response.data.balance }));
-      setWalletLoading(false);
+      const response = await api.get(`/api/wallet/${userId}/balance`);
+      const newWallet = {
+        balance: response.data.balance,
+        lastUpdated: new Date().getTime()
+      };
+      setWallet(newWallet);
+      localStorage.setItem('userWallet', JSON.stringify(newWallet));
     } catch (error) {
       console.error('Error fetching wallet balance:', error);
+      const cachedWallet = localStorage.getItem('userWallet');
+      if (cachedWallet) {
+        setWallet(JSON.parse(cachedWallet));
+      }
+    } finally {
       setWalletLoading(false);
     }
   }, []);
@@ -33,11 +52,10 @@ export const AuthProvider = ({ children }) => {
     if (!userId) return;
     
     try {
-      const [userResponse, walletResponse, notificationsResponse, investmentsResponse] = await Promise.all([
-        api.get(`/users/${userId}`),
-        api.get(`/wallet/${userId}`),
-        api.get(`/notifications/${userId}`),
-        api.get(`/investments/${userId}`)
+      const [userResponse, walletResponse, notificationsResponse] = await Promise.all([
+        api.get(`/api/users/${userId}`),
+        api.get(`/api/wallet/${userId}/balance`),
+        api.get(`/api/notifications/${userId}`)
       ]);
       
       if (!userResponse.data) throw new Error('No user data received');
@@ -45,13 +63,11 @@ export const AuthProvider = ({ children }) => {
       setUser(userResponse.data);
       setWallet(walletResponse.data);
       setNotifications(notificationsResponse.data);
-      setInvestments(investmentsResponse.data);
     } catch (error) {
       console.error('Error fetching user data:', error);
-      // Handle specific error cases
-      if (error.response?.status === 404) {
-        // Handle 404 specifically
-        console.error('Resource not found');
+      const cachedWallet = localStorage.getItem('userWallet');
+      if (cachedWallet) {
+        setWallet(JSON.parse(cachedWallet));
       }
     }
   }, []);
@@ -73,35 +89,40 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       setLoading(true);
+      if (!checkToken()) {
+        setLoading(false);
+        return;
+      }
       const token = localStorage.getItem('userAuthToken');
+      const cachedWallet = localStorage.getItem('userWallet');
       
       if (token) {
         try {
-          console.log('Verifying user token');
           const response = await api.get('/verify');
-          console.log('User verified:', response.data.user);
           setUser(response.data.user);
           setIsUserLoggedIn(true);
-          await fetchUserData(response.data.user.id);
-          await fetchWalletBalance(response.data.user.id); // Fetch wallet balance immediately
+          
+          if (cachedWallet) {
+            const parsedWallet = JSON.parse(cachedWallet);
+            setWallet(parsedWallet);
+          }
+          
+          await fetchWalletBalance(response.data.user.id);
         } catch (error) {
           console.error('Auth initialization error:', error);
           localStorage.removeItem('userAuthToken');
+          localStorage.removeItem('userWallet');
           setUser(null);
           setIsUserLoggedIn(false);
           setWallet(null);
-          setNotifications([]);
-          setInvestments([]);
         }
-      } else {
-        console.log('No auth token found');
       }
       
       setLoading(false);
     };
   
     initializeAuth();
-  }, [fetchUserData, fetchWalletBalance]);
+  }, [checkToken]);
 
   
 
@@ -118,13 +139,34 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user, fetchWalletBalance]);
 
-  const userLogin = async ({ token, user }) => {
+  useEffect(() => {
+    const persistedWallet = localStorage.getItem('userWallet');
+    if (persistedWallet) {
+      const parsedWallet = JSON.parse(persistedWallet);
+      if (new Date().getTime() - parsedWallet.lastUpdated < 300000) {
+        setWallet(parsedWallet);
+        setWalletLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (wallet) {
+      localStorage.setItem('userWallet', JSON.stringify(wallet));
+    }
+  }, [wallet]);
+
+  const userLogin = async (data) => {
     try {
+      const { token, user } = data;
+      if (!token || !user) {
+        throw new Error('Invalid login data');
+      }
+
       localStorage.setItem('userAuthToken', token);
+      localStorage.setItem('user', JSON.stringify(user));
       setUser(user);
       setIsUserLoggedIn(true);
-      await fetchUserData(user.id);
-      await fetchWalletBalance(user.id);
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
@@ -132,19 +174,49 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const adminLogin = async (data) => {
     try {
-      await api.post('/logout');
+      if (!data || !data.token || !data.user) {
+        console.error('Invalid login data received:', data);
+        return { success: false, error: 'Invalid login data' };
+      }
+  
+      const { token, user } = data;
+      
+      if (!user.isAdmin) {
+        console.error('User is not an admin:', user);
+        return { success: false, error: 'Not authorized as admin' };
+      }
+  
+      // Store token and user data
+      localStorage.setItem('userAuthToken', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      // Update state
+      setUser(user);
+      setIsUserLoggedIn(true);
+      
+      console.log('Admin login successful:', { user });
+      
+      return { success: true };
     } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      console.error('Admin login error:', error);
+      // Clean up any partial data
       localStorage.removeItem('userAuthToken');
+      localStorage.removeItem('user');
       setUser(null);
       setIsUserLoggedIn(false);
-      setWallet(null);
-      setNotifications([]);
-      setInvestments([]);
+      return { success: false, error };
     }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('userAuthToken');
+    localStorage.removeItem('userWallet');
+    setUser(null);
+    setIsUserLoggedIn(false);
+    setWallet(null);
+    setWalletLoading(false);
   };
 
 
@@ -168,6 +240,7 @@ export const AuthProvider = ({ children }) => {
     user,
     isUserLoggedIn,
     userLogin,
+    adminLogin,
     logout,
     loading,
     wallet,

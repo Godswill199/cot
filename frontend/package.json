@@ -2,15 +2,19 @@
   "name": "cotland",
   "version": "1.0.0",
   "description": "Cotland betting platform",
+  "main": "index.js",
   "scripts": {
-    "start": "cd auth-backend && node src/index.js",
-    "server": "cd auth-backend && nodemon src/index.js",
+    "start": "node auth-backend/src/index.js",
+    "server": "nodemon auth-backend/src/index.js",
     "client": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "install-all": "npm install && cd frontend && npm install && cd ../auth-backend && npm install"
+    "install-all": "npm install && cd frontend && npm install"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
     "concurrently": "^8.0.1"
   }
-} 
+}

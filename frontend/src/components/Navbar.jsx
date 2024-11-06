@@ -16,10 +16,17 @@ const Navbar = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeComponent, setActiveComponent] = useState(null);
   const navigate = useNavigate();
-  const { user, logout, wallet, notifications, loading, walletLoading, refreshUserData, refreshWalletBalance } = useAuth();
+  const { 
+    user, 
+    logout, 
+    wallet, 
+    notifications, 
+    loading, 
+    walletLoading, 
+    refreshUserData, 
+    refreshWalletBalance 
+  } = useAuth();
   const [localWalletLoading, setLocalWalletLoading] = useState(true);
-
-
 
   useEffect(() => {
     console.log('Navbar useEffect - User:', user?.id);
@@ -39,15 +46,59 @@ const Navbar = () => {
     }
   }, [user, wallet, walletLoading, refreshWalletBalance]);
 
+  useEffect(() => {
+    const initializeWallet = async () => {
+      if (!user?.id) {
+        setLocalWalletLoading(false);
+        return;
+      }
 
+      // Try to get cached wallet data first
+      const cachedWallet = localStorage.getItem('userWallet');
+      if (cachedWallet) {
+        const parsedWallet = JSON.parse(cachedWallet);
+        if (new Date().getTime() - parsedWallet.lastUpdated < 300000) { // 5 minutes
+          setLocalWalletLoading(false);
+          return;
+        }
+      }
+
+      // If no valid cached data, fetch fresh data
+      try {
+        await refreshWalletBalance();
+      } finally {
+        setLocalWalletLoading(false);
+      }
+    };
+
+    initializeWallet();
+  }, [user?.id, refreshWalletBalance]);
+
+  useEffect(() => {
+    if (wallet) {
+      setLocalWalletLoading(false);
+      // Cache the wallet data
+      localStorage.setItem('userWallet', JSON.stringify({
+        ...wallet,
+        lastUpdated: new Date().getTime()
+      }));
+    }
+  }, [wallet]);
 
   const handleNavItemClick = (component) => {
+    if (component === 'Logout') {
+      logout();
+      navigate('/');
+      return;
+    }
+
     if (!user && ['Market', 'History', 'Account', 'Wallet', 'Transactions'].includes(component)) {
       navigate('/login', { state: { from: `/${component.toLowerCase()}` } });
     } else {
       setActiveComponent(component);
       navigate(`/${component.toLowerCase()}`);
     }
+    
     if (isMobile) {
       setIsOpen(false);
     }
@@ -107,12 +158,43 @@ const Navbar = () => {
     { icon: <FaWallet />, label: 'Wallet', component: 'Deposit' },
     { icon: <AiOutlineTransaction />, label: 'Transactions', component: 'Transactions' },
     { icon: <FaSignOutAlt />, label: 'Logout', component: 'Logout' },
+    // Add admin item conditionally
+    ...(user?.isAdmin ? [{
+      icon: <MdAccountCircle />,
+      label: 'Admin Marketplace',
+      component: 'admin/marketplace'
+    }] : [])
   ];
 
   useEffect(() => {
     document.body.style.overflow = (isMobile && isOpen) || showNotifications ? 'hidden' : 'unset';
     return () => (document.body.style.overflow = 'unset');
   }, [isMobile, isOpen, showNotifications]);
+
+  const renderWalletBalance = () => {
+    if (!user) return null;
+
+    // Use cached data while loading
+    const cachedWallet = localStorage.getItem('userWallet');
+    if (localWalletLoading && cachedWallet) {
+      const parsedWallet = JSON.parse(cachedWallet);
+      return (
+        <div className="text-white mr-4">
+          ₦{parsedWallet.balance?.toLocaleString() || '0'}
+        </div>
+      );
+    }
+
+    if (localWalletLoading) {
+      return <div className="text-white mr-4">Loading...</div>;
+    }
+
+    return (
+      <div className="text-white mr-4">
+        ₦{wallet?.balance?.toLocaleString() || '0'}
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -161,13 +243,7 @@ const Navbar = () => {
                 )}
               </button>
 
-              {user ? (
-                  <div className="text-white mr-4">
-                    {localWalletLoading || walletLoading ? 'Loading...' : `₦${wallet?.balance || 0}`}
-                  </div>
-                ) : (
-                  <div className="text-white mr-4">Not logged in</div>
-              )}
+              {renderWalletBalance()}
 
               <button 
                 onClick={() => navigate('/deposit')} 

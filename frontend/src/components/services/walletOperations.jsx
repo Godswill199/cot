@@ -7,13 +7,11 @@ export const submitDepositRequest = async (userId, amount, receiptImage) => {
     formData.append('amount', amount);
     formData.append('receipt', receiptImage);
 
-    const token = localStorage.getItem('userAuthToken');
-    const headers = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'multipart/form-data',
-    };
-
-    const response = await api.post('/deposit', formData, { headers });
+    const response = await api.post('/wallet/deposit', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
 
     return response.data;
   } catch (error) {
@@ -27,14 +25,32 @@ export const submitWithdrawalRequest = async (userId, amount, bankDetails) => {
     const response = await api.post('/wallet/withdraw', {
       userId,
       amount,
-      bankName: bankDetails.bankName,
-      accountNumber: bankDetails.accountNumber,
-      accountName: bankDetails.accountName,
+      bankDetails
     });
 
     return response.data;
   } catch (error) {
     console.error('Error submitting withdrawal request:', error);
+    throw error;
+  }
+};
+
+export const getWalletBalance = async (userId) => {
+  try {
+    const response = await api.get(`/wallet/${userId}/balance`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching wallet balance:', error);
+    throw error;
+  }
+};
+
+export const getTransactionHistory = async (userId) => {
+  try {
+    const response = await api.get(`/wallet/${userId}/transactions`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching transaction history:', error);
     throw error;
   }
 };
