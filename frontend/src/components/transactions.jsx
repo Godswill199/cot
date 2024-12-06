@@ -1,59 +1,79 @@
 // components/TransactionTable.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
+import api from './utils/axiosConfig';
+import { useAuth } from './context/AuthContext';
+import { formatCurrency } from '../utils/currencyUtils';
 
 const TransactionTable = () => {
   const [activeTab, setActiveTab] = useState('Deposit');
   const [showAll, setShowAll] = useState(false);
+  const [transactions, setTransactions] = useState({
+    Deposit: [],
+    Withdraw: [],
+    Subscription: []
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { user, localCurrency } = useAuth();
 
-  // Sample transaction data
-  const transactions = {
-    Deposit: [
-      { time: '3/08 18:00', action: 'Deposit', tradeNo: '240826094631tr446570527', amount: 5.00, status: 'Succeed', balance: 5.00 },
-      { time: '3/08 18:05', action: 'Deposit', tradeNo: '240826094631tr446570528', amount: 10.00, status: 'Succeed', balance: 15.00 },
-      { time: '3/08 18:10', action: 'Deposit', tradeNo: '240826094631tr446570529', amount: 7.50, status: 'Failed', balance: 7.50 },
-      { time: '3/08 18:15', action: 'Deposit', tradeNo: '240826094631tr446570530', amount: 20.00, status: 'Succeed', balance: 27.50 },
-      { time: '3/08 18:20', action: 'Deposit', tradeNo: '240826094631tr446570531', amount: 5.00, status: 'Succeed', balance: 32.50 },
-      { time: '3/08 18:25', action: 'Deposit', tradeNo: '240826094631tr446570532', amount: 3.00, status: 'Pending', balance: 35.50 },
-      { time: '3/08 18:30', action: 'Deposit', tradeNo: '240826094631tr446570533', amount: 12.00, status: 'Succeed', balance: 47.50 },
-      { time: '3/08 18:35', action: 'Deposit', tradeNo: '240826094631tr446570534', amount: 15.00, status: 'Failed', balance: 32.50 },
-      { time: '3/08 18:40', action: 'Deposit', tradeNo: '240826094631tr446570535', amount: 8.50, status: 'Succeed', balance: 41.00 },
-      { time: '3/08 18:45', action: 'Deposit', tradeNo: '240826094631tr446570536', amount: 10.00, status: 'Succeed', balance: 51.00 },
-    ],
-    Withdraw: [
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      { time: '3/08 19:00', action: 'Withdraw', tradeNo: '240826094631tr446570537', amount: 5.00, status: 'Pending', balance: 46.00 },
-      // additional transactions up to 10 for Withdraw
-    ],
-    Subscription: [
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      { time: '3/08 18:30', action: 'Subscription', tradeNo: '240826094631tr446570540', amount: 10.00, status: 'Active', balance: 41.00 },
-      // additional transactions up to 10 for Subscription
-    ]
-  };
+  // Fetch transactions from API
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        setIsLoading(true);
+        const response = await api.get('/transactions/history');
+        
+        // Group transactions by type
+        const grouped = response.data.reduce((acc, transaction) => {
+          const type = transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1);
+          if (!acc[type]) acc[type] = [];
+          acc[type].push({
+            time: new Date(transaction.createdAt).toLocaleString(),
+            action: type,
+            tradeNo: transaction.transactionId,
+            amount: transaction.amount,
+            status: transaction.status,
+            balance: transaction.balanceAfter
+          });
+          return acc;
+        }, {
+          Deposit: [],
+          Withdraw: [],
+          Subscription: []
+        });
+
+        setTransactions(grouped);
+      } catch (err) {
+        console.error('Error fetching transactions:', err);
+        setError('Failed to load transactions. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user?.id) {
+      fetchTransactions();
+    }
+  }, [user?.id]);
 
   const handleShowMore = () => setShowAll(!showAll);
+
+  // if (isLoading) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-[#1f1f1f]">
+  //       <div className="text-white">Loading transactions...</div>
+  //     </div>
+  //   );
+  // }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#1f1f1f]">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#1f1f1f]">
@@ -63,7 +83,7 @@ const TransactionTable = () => {
 
         {/* Tabs */}
         <div className="flex justify-center gap-2 mb-6">
-          {['Deposit', 'Withdraw', 'Subscription'].map((tab) => (
+          {Object.keys(transactions).map((tab) => (
             <button
               key={tab}
               className={`px-4 py-2 rounded-lg text-xs md:text-sm transition-colors ${
@@ -71,10 +91,10 @@ const TransactionTable = () => {
               } hover:bg-[#282828]`}
               onClick={() => {
                 setActiveTab(tab);
-                setShowAll(false); // reset showAll when switching tabs
+                setShowAll(false);
               }}
             >
-              {tab}
+              {tab} ({transactions[tab].length})
             </button>
           ))}
         </div>
@@ -93,22 +113,26 @@ const TransactionTable = () => {
             </thead>
             <tbody>
               {(showAll ? transactions[activeTab] : transactions[activeTab].slice(0, 5)).map((transaction, index) => (
-                <tr key={index}>
+                <tr key={transaction.tradeNo || index}>
                   <td className="px-2 md:px-4 py-3 bg-[#282828] text-gray-300">{transaction.time}</td>
                   <td className="px-2 md:px-4 py-3 bg-[#282828] text-blue-400">{transaction.action}</td>
                   <td className="px-2 md:px-4 py-3 bg-[#282828] text-gray-300">{transaction.tradeNo}</td>
-                  <td className="px-2 md:px-4 py-3 bg-[#282828] text-gray-300">${transaction.amount.toFixed(2)}</td>
+                  <td className="px-2 md:px-4 py-3 bg-[#282828] text-gray-300">
+                    {formatCurrency(transaction.amount, localCurrency?.code || 'NGN')}
+                  </td>
                   <td className="px-2 md:px-4 py-3 bg-[#282828]">
                     <span
                       className={`px-2 py-1 rounded text-xs ${
-                        transaction.status === 'Succeed' ? 'bg-green-500 text-black' :
-                        transaction.status === 'Pending' ? 'bg-yellow-500 text-black' : 'bg-red-500 text-black'
+                        transaction.status === 'success' ? 'bg-green-500 text-black' :
+                        transaction.status === 'pending' ? 'bg-yellow-500 text-black' : 'bg-red-500 text-black'
                       }`}
                     >
                       {transaction.status}
                     </span>
                   </td>
-                  <td className="px-2 md:px-4 py-3 bg-[#282828] text-gray-300">${transaction.balance.toFixed(2)}</td>
+                  <td className="px-2 md:px-4 py-3 bg-[#282828] text-gray-300">
+                    {formatCurrency(transaction.balance, localCurrency?.code || 'NGN')}
+                  </td>
                 </tr>
               ))}
             </tbody>
